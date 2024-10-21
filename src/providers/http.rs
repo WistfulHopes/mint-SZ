@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 use tracing::info;
-
+use mint_lib::mod_info::ModType::ModPlugin;
 use crate::providers::*;
 
 inventory::submit! {
@@ -95,8 +95,7 @@ impl ModProvider for HttpProvider {
             resolution: ModResolution::resolvable(spec.url.as_str().into()),
             suggested_require: false,
             suggested_dependencies: vec![],
-            modio_tags: None,
-            modio_id: None,
+            mod_type: ModPlugin
         }))
     }
 
@@ -230,8 +229,7 @@ impl ModProvider for HttpProvider {
             resolution: ModResolution::resolvable(spec.url.as_str().into()),
             suggested_require: false,
             suggested_dependencies: vec![],
-            modio_tags: None,
-            modio_id: None,
+            mod_type: ModPlugin
         })
     }
 

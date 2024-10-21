@@ -18,7 +18,7 @@ use crate::{
     Dirs,
 };
 use crate::{gui::SortBy, providers::ProviderError};
-use mint_lib::{mod_info::MetaConfig, DRGInstallation};
+use mint_lib::{mod_info::MetaConfig, DBSZInstallation};
 
 /// Mod configuration, holds ModSpecification as well as other metadata
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
@@ -340,7 +340,7 @@ fn is_false(value: &bool) -> bool {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub provider_parameters: HashMap<String, HashMap<String, String>>,
-    pub drg_pak_path: Option<PathBuf>,
+    pub dbsz_path: Option<PathBuf>,
     pub gui_theme: Option<GuiTheme>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub disable_fix_exploding_gas: bool,
@@ -414,9 +414,9 @@ impl Default for Config!["0.0.0"] {
     fn default() -> Self {
         Self {
             provider_parameters: Default::default(),
-            drg_pak_path: DRGInstallation::find()
+            dbsz_path: DBSZInstallation::find()
                 .as_ref()
-                .map(DRGInstallation::main_pak),
+                .map(DBSZInstallation::mods_path),
             gui_theme: None,
             disable_fix_exploding_gas: false,
             sorting_config: None,
@@ -501,7 +501,7 @@ fn read_config_or_default(config_path: &PathBuf) -> Result<VersionAnnotatedConfi
                 MaybeVersionedConfig::Legacy(legacy) => {
                     VersionAnnotatedConfig::V0_0_0(Config_v0_0_0 {
                         provider_parameters: legacy.provider_parameters,
-                        drg_pak_path: legacy.drg_pak_path,
+                        dbsz_path: legacy.dbsz_path,
                         ..Default::default()
                     })
                 }

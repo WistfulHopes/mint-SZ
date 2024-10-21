@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tokio::sync::mpsc::Sender;
-
+use mint_lib::mod_info::ModType::{ModPlugin, Pak};
 use super::{
     BlobCache, FetchProgress, ModInfo, ModProvider, ModResolution, ModResponse, ModSpecification,
     ProviderCache, ProviderError,
@@ -61,8 +61,15 @@ impl ModProvider for FileProvider {
             ),
             suggested_require: false,
             suggested_dependencies: vec![],
-            modio_tags: None,
-            modio_id: None,
+            mod_type: match path.join(path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| spec.url.to_string())
+                + ".uplugin").exists()
+            {
+                true => ModPlugin,
+                false => Pak
+            }
         }))
     }
 
@@ -111,8 +118,15 @@ impl ModProvider for FileProvider {
             ),
             suggested_require: false,
             suggested_dependencies: vec![],
-            modio_tags: None,
-            modio_id: None,
+            mod_type: match path.join(path
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| spec.url.to_string())
+                + ".uplugin").exists()
+            {
+                true => ModPlugin,
+                false => Pak
+            }
         })
     }
 

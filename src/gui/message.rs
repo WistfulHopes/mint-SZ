@@ -25,7 +25,6 @@ use crate::{
     state::ModConfig,
 };
 use mint_lib::error::GenericError;
-use mint_lib::mod_info::MetaConfig;
 use mint_lib::update::GitHubRelease;
 
 #[derive(Debug)]
@@ -187,7 +186,6 @@ impl Integrate {
         store: Arc<ModStore>,
         mods: Vec<ModSpecification>,
         fsd_pak: PathBuf,
-        config: MetaConfig,
         tx: Sender<Message>,
         ctx: egui::Context,
     ) -> MessageHandle<HashMap<ModSpecification, SpecFetchProgress>> {
@@ -196,7 +194,7 @@ impl Integrate {
             rid,
             handle: tokio::task::spawn(async move {
                 let res =
-                    integrate_async(store, ctx.clone(), mods, fsd_pak, config, rid, tx.clone())
+                    integrate_async(store, ctx.clone(), mods, fsd_pak, rid, tx.clone())
                         .await;
                 tx.send(Message::Integrate(Integrate { rid, result: res }))
                     .await
@@ -224,7 +222,6 @@ impl Integrate {
                 }
                 Err(e) => {
                     error!("{}", e);
-                    app.problematic_mod_id = e.opt_mod_id();
                     app.last_action = Some(LastAction::failure(e.to_string()));
                 }
             }
@@ -356,8 +353,7 @@ async fn integrate_async(
     store: Arc<ModStore>,
     ctx: egui::Context,
     mod_specs: Vec<ModSpecification>,
-    fsd_pak: PathBuf,
-    config: MetaConfig,
+    project: PathBuf,
     rid: RequestID,
     message_tx: Sender<Message>,
 ) -> Result<(), IntegrationError> {
@@ -400,8 +396,7 @@ async fn integrate_async(
 
     tokio::task::spawn_blocking(|| {
         crate::integrate::integrate(
-            fsd_pak,
-            config,
+            project,
             to_integrate.into_iter().zip(paths).collect(),
         )
     })
@@ -483,7 +478,6 @@ impl LintMods {
                 }
                 Err(e) => {
                     error!("{}", e);
-                    app.problematic_mod_id = e.opt_mod_id();
                     app.last_action = Some(LastAction::failure(e.to_string()));
                 }
             }

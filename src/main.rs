@@ -184,7 +184,7 @@ fn init_provider(
 
 fn get_pak_path(state: &State, arg: &Option<PathBuf>) -> Result<PathBuf> {
     arg.as_ref()
-        .or_else(|| state.config.drg_pak_path.as_ref())
+        .or_else(|| state.config.dbsz_path.as_ref())
         .cloned()
         .context("Could not find DRG pak file, please specify manually with the --fsd_pak flag")
 }

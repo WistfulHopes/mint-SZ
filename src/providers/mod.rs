@@ -1,7 +1,5 @@
 pub mod file;
-pub mod http;
-pub mod modio;
-#[macro_use]
+pub mod http;#[macro_use]
 pub mod cache;
 pub mod mod_store;
 
@@ -16,8 +14,6 @@ use std::sync::{Arc, RwLock};
 pub use cache::*;
 pub use mint_lib::mod_info::*;
 pub use mod_store::*;
-
-use self::modio::DrgModioError;
 
 type Providers = RwLock<HashMap<&'static str, Arc<dyn ModProvider>>>;
 
@@ -78,8 +74,6 @@ pub enum ProviderError {
     },
     #[snafu(transparent)]
     CacheError { source: CacheError },
-    #[snafu(transparent)]
-    DrgModioError { source: DrgModioError },
     #[snafu(display("mod.io-related error encountered while working on mod {mod_id}: {source}"))]
     ModCtxtModioError { source: ::modio::Error, mod_id: u32 },
     #[snafu(display("I/O error encountered while working on mod {mod_id}: {source}"))]
@@ -125,7 +119,6 @@ pub enum ProviderError {
 impl ProviderError {
     pub fn opt_mod_id(&self) -> Option<u32> {
         match self {
-            ProviderError::DrgModioError { source } => source.opt_mod_id(),
             ProviderError::ModCtxtModioError { mod_id, .. }
             | ProviderError::ModCtxtIoError { mod_id, .. } => Some(*mod_id),
             _ => None,

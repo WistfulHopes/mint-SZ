@@ -8,7 +8,7 @@ mod toggle_switch;
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
-use std::ops::{Deref, RangeInclusive};
+use std::ops::{RangeInclusive};
 use std::time::{Duration, Instant, SystemTime};
 use std::{
     collections::{HashMap, HashSet},
@@ -26,7 +26,6 @@ use eframe::{
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 use itertools::Itertools as _;
 use mint_lib::error::ResultExt as _;
-use mint_lib::mod_info::{ModioTags, RequiredStatus};
 use mint_lib::update::GitHubRelease;
 use strum::{EnumIter, IntoEnumIterator};
 use tokio::{
@@ -44,7 +43,7 @@ use crate::{
     integrate::uninstall,
     is_drg_pak,
     providers::{
-        ApprovalStatus, FetchProgress, ModInfo, ModSpecification, ModStore, ProviderFactory,
+        FetchProgress, ModInfo, ModSpecification, ModStore, ProviderFactory,
     },
     state::{ModConfig, ModData_v0_1_0 as ModData, ModOrGroup, ModProfile, State},
     MintError,
@@ -101,8 +100,6 @@ pub enum SortBy {
     Name,
     Priority,
     Provider,
-    RequiredStatus,
-    ApprovalCategory,
 }
 
 impl SortBy {
@@ -112,8 +109,6 @@ impl SortBy {
             SortBy::Name => "Name",
             SortBy::Priority => "Priority",
             SortBy::Provider => "Provider",
-            SortBy::RequiredStatus => "Is Required",
-            SortBy::ApprovalCategory => "Approval",
         }
     }
 }
@@ -301,120 +296,6 @@ impl App {
                 })
                 .collect::<Vec<_>>();
 
-            let ui_mod_tags = |ctx: &mut Ctx, ui: &mut Ui, info: &ModInfo| {
-                if let Some(ModioTags {
-                    qol,
-                    gameplay,
-                    audio,
-                    visual,
-                    framework,
-                    required_status,
-                    approval_status,
-                    versions: _,
-                }) = info.modio_tags.as_ref()
-                {
-                    let mut mk_searchable_modio_tag =
-                        |tag_str: &str,
-                         ui: &mut Ui,
-                         color: Option<egui::Color32>,
-                         hover_str: Option<&str>| {
-                            let search = searchable_text(tag_str, &self.search_string, {
-                                TextFormat {
-                                    color: if color.is_some() {
-                                        Color32::BLACK
-                                    } else {
-                                        Color32::GRAY
-                                    },
-
-                                    ..Default::default()
-                                }
-                            });
-
-                            let button = if let Some(color) = color {
-                                egui::Button::new(search.job)
-                                    .small()
-                                    .fill(color)
-                                    .stroke(egui::Stroke::NONE)
-                            } else {
-                                egui::Button::new(search.job)
-                                    .small()
-                                    .stroke(egui::Stroke::NONE)
-                            };
-
-                            let res = if let Some(hover_str) = hover_str {
-                                ui.add_enabled(false, button)
-                                    .on_disabled_hover_text(hover_str)
-                            } else {
-                                ui.add_enabled(false, button)
-                            };
-
-                            if search.is_match && self.scroll_to_match {
-                                res.scroll_to_me(None);
-                                ctx.scroll_to_match = false;
-                            }
-                        };
-
-                    match approval_status {
-                        ApprovalStatus::Verified => {
-                            mk_searchable_modio_tag(
-                                "Verified",
-                                ui,
-                                Some(egui::Color32::LIGHT_GREEN),
-                                Some("Does not contain any gameplay affecting features or changes"),
-                            );
-                        }
-                        ApprovalStatus::Approved => {
-                            mk_searchable_modio_tag(
-                                "Approved",
-                                ui,
-                                Some(egui::Color32::LIGHT_BLUE),
-                                Some("Contains gameplay affecting features or changes"),
-                            );
-                        }
-                        ApprovalStatus::Sandbox => {
-                            mk_searchable_modio_tag("Sandbox", ui, Some(egui::Color32::LIGHT_YELLOW), Some("Contains significant, possibly progression breaking, changes to gameplay"));
-                        }
-                    }
-
-                    match required_status {
-                        RequiredStatus::RequiredByAll => {
-                            mk_searchable_modio_tag(
-                                "RequiredByAll",
-                                ui,
-                                Some(egui::Color32::LIGHT_RED),
-                                Some(
-                                    "All lobby members must use this mod for it to work correctly!",
-                                ),
-                            );
-                        }
-                        RequiredStatus::Optional => {
-                            mk_searchable_modio_tag(
-                                "Optional",
-                                ui,
-                                None,
-                                Some("Clients are not required to install this mod to function"),
-                            );
-                        }
-                    }
-
-                    if *qol {
-                        mk_searchable_modio_tag("QoL", ui, None, None);
-                    }
-                    if *gameplay {
-                        mk_searchable_modio_tag("Gameplay", ui, None, None);
-                    }
-                    if *audio {
-                        mk_searchable_modio_tag("Audio", ui, None, None);
-                    }
-                    if *visual {
-                        mk_searchable_modio_tag("Visual", ui, None, None);
-                    }
-                    if *framework {
-                        mk_searchable_modio_tag("Framework", ui, None, None);
-                    }
-                }
-            };
-
             let mut ui_mod = |ctx: &mut Ctx,
                               ui: &mut Ui,
                               _group: Option<&str>,
@@ -444,15 +325,6 @@ impl App {
                 */
 
                 let info = self.state.store.get_mod_info(&mc.spec);
-
-                if let Some(ref info) = info
-                    && let Some(modio_id) = info.modio_id
-                    && self.problematic_mod_id.is_some_and(|id| id == modio_id)
-                {
-                    let icon = egui::Button::new(RichText::new("❌").color(Color32::WHITE))
-                        .fill(Color32::RED);
-                    ui.add_enabled(false, icon);
-                }
 
                 if mc.enabled {
                     if let Some(req) = &self.integrate_rid {
@@ -635,10 +507,6 @@ impl App {
                         res.scroll_to_me(None);
                         ctx.scroll_to_match = false;
                     }
-
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui_mod_tags(ctx, ui, info);
-                    });
                 } else {
                     if ui
                         .button("📋")
@@ -1107,7 +975,7 @@ impl App {
                 if let Err(e) = is_drg_pak(&window.drg_pak_path) {
                     window.drg_pak_path_err = Some(e.to_string());
                 } else {
-                    self.state.config.drg_pak_path = Some(PathBuf::from(
+                    self.state.config.dbsz_path = Some(PathBuf::from(
                         self.settings_window.take().unwrap().drg_pak_path,
                     ));
                     self.state.config.save().unwrap();
@@ -1174,7 +1042,7 @@ impl App {
 
                             ui.label("Mods containing unmodified game assets");
                             ui.add_enabled(
-                                self.state.config.drg_pak_path.is_some(),
+                                self.state.config.dbsz_path.is_some(),
                                 toggle_switch(&mut self.lint_options.unmodified_game_assets),
                             )
                             .on_disabled_hover_text(
@@ -1249,7 +1117,7 @@ impl App {
                                         .into_iter()
                                         .filter_map(|(lint, enabled)| enabled.then_some(lint)),
                                 ),
-                                self.state.config.drg_pak_path.clone(),
+                                self.state.config.dbsz_path.clone(),
                                 self.tx.clone(),
                                 ctx.clone(),
                             ));
@@ -1606,21 +1474,11 @@ fn sort_mods(
             (info.map(|i| i.name.to_lowercase()), &mc.spec.url)
         });
         let provider_order = map_cmp(&info_a, &info_b, |info| info.map(|i| i.provider));
-        let approval_order = map_cmp(&info_a, &info_b, |info| {
-            info.and_then(|i| i.modio_tags.as_ref())
-                .map(|t| t.approval_status)
-        });
-        let required_order = map_cmp(&info_a, &info_b, |info| {
-            info.and_then(|i| i.modio_tags.as_ref())
-                .map(|t| std::cmp::Reverse(t.required_status))
-        });
         let mut order = match config.sort_category {
             SortBy::Enabled => mc_b.enabled.cmp(&mc_a.enabled),
             SortBy::Name => name_order,
             SortBy::Priority => mc_a.priority.cmp(&mc_b.priority),
             SortBy::Provider => provider_order,
-            SortBy::RequiredStatus => required_order,
-            SortBy::ApprovalCategory => approval_order,
         };
 
         if config.is_ascending {
@@ -1670,7 +1528,7 @@ impl WindowSettings {
     fn new(state: &State) -> Self {
         let path = state
             .config
-            .drg_pak_path
+            .dbsz_path
             .as_ref()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default();
@@ -1738,7 +1596,7 @@ impl eframe::App for App {
                         && self.update_rid.is_none()
                         && self.lint_rid.is_none()
                         && self.self_update_rid.is_none()
-                        && self.state.config.drg_pak_path.is_some(),
+                        && self.state.config.dbsz_path.is_some(),
                     |ui| {
                         if let Some(args) = &self.args {
                             if ui
@@ -1761,9 +1619,9 @@ impl eframe::App for App {
                             }
                         }
 
-                        ui.add_enabled_ui(self.state.config.drg_pak_path.is_some(), |ui| {
+                        ui.add_enabled_ui(self.state.config.dbsz_path.is_some(), |ui| {
                             let mut button = ui.button("Install mods");
-                            if self.state.config.drg_pak_path.is_none() {
+                            if self.state.config.dbsz_path.is_none() {
                                 button = button.on_disabled_hover_text(
                                     "DRG install not found. Configure it in the settings menu.",
                                 );
@@ -1790,8 +1648,7 @@ impl eframe::App for App {
                                     &mut self.request_counter,
                                     self.state.store.clone(),
                                     mods,
-                                    self.state.config.drg_pak_path.as_ref().unwrap().clone(),
-                                    self.state.config.deref().into(),
+                                    self.state.config.dbsz_path.as_ref().unwrap().clone(),
                                     self.tx.clone(),
                                     ctx.clone(),
                                 ));
@@ -1799,31 +1656,17 @@ impl eframe::App for App {
                             }
                         });
 
-                        ui.add_enabled_ui(self.state.config.drg_pak_path.is_some(), |ui| {
+                        ui.add_enabled_ui(self.state.config.dbsz_path.is_some(), |ui| {
                             let mut button = ui.button("Uninstall mods");
-                            if self.state.config.drg_pak_path.is_none() {
+                            if self.state.config.dbsz_path.is_none() {
                                 button = button.on_disabled_hover_text(
                                     "DRG install not found. Configure it in the settings menu.",
                                 );
                             }
                             if button.clicked() {
                                 self.last_action = None;
-                                if let Some(pak_path) = &self.state.config.drg_pak_path {
-                                    let mut mods = HashSet::default();
-                                    let active_profile = self.state.mod_data.active_profile.clone();
-                                    self.state.mod_data.for_each_enabled_mod(
-                                        &active_profile,
-                                        |mc| {
-                                            if let Some(modio_id) = self
-                                                .state
-                                                .store
-                                                .get_mod_info(&mc.spec)
-                                                .and_then(|i| i.modio_id)
-                                            {
-                                                mods.insert(modio_id);
-                                            }
-                                        },
-                                    );
+                                if let Some(pak_path) = &self.state.config.dbsz_path {
+                                    let mods = HashSet::default();
 
                                     debug!("uninstalling mods: pak_path = {}", pak_path.display());
                                     self.last_action = Some(match uninstall(pak_path, mods) {

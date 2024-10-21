@@ -7,7 +7,6 @@ pub mod mod_lints;
 pub mod providers;
 pub mod state;
 
-use std::ops::Deref;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
@@ -145,7 +144,6 @@ pub async fn resolve_unordered_and_integrate<P: AsRef<Path>>(
 
     integrate::integrate(
         game_path,
-        state.config.deref().into(),
         to_integrate.into_iter().zip(paths).collect(),
     )
 }

@@ -1,19 +1,6 @@
-use std::{collections::BTreeSet, fmt::Display};
+use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
-
-/// Tags from mod.io.
-#[derive(Debug, Clone)]
-pub struct ModioTags {
-    pub qol: bool,
-    pub gameplay: bool,
-    pub audio: bool,
-    pub visual: bool,
-    pub framework: bool,
-    pub versions: BTreeSet<String>,
-    pub required_status: RequiredStatus,
-    pub approval_status: ApprovalStatus,
-}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RequiredStatus {
@@ -21,18 +8,20 @@ pub enum RequiredStatus {
     Optional,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum ApprovalStatus {
-    Verified,
-    Approved,
-    Sandbox,
-}
-
 /// Whether a mod can be resolved by clients or not
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub enum ResolvableStatus {
     Unresolvable(String),
     Resolvable,
+}
+
+/// Points to a mod, optionally a specific version
+#[derive(
+    Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+pub enum ModType {
+    ModPlugin,
+    Pak,
 }
 
 /// Returned from ModStore
@@ -45,8 +34,7 @@ pub struct ModInfo {
     pub resolution: ModResolution,
     pub suggested_require: bool,
     pub suggested_dependencies: Vec<ModSpecification>, // ModResponse
-    pub modio_tags: Option<ModioTags>,                 // only available for mods from mod.io
-    pub modio_id: Option<u32>,                         // only available for mods from mod.io
+    pub mod_type: ModType,
 }
 
 /// Returned from ModProvider
@@ -151,31 +139,5 @@ pub struct MetaMod {
     pub version: String,
     pub url: String,
     pub author: String,
-    pub approval: ApprovalStatus,
     pub required: bool,
-}
-impl Meta {
-    pub fn to_server_list_string(&self) -> String {
-        use itertools::Itertools;
-
-        ["mint".into(), self.version.to_string()]
-            .into_iter()
-            .chain(
-                self.mods
-                    .iter()
-                    .sorted_by_key(|m| (std::cmp::Reverse(m.approval), &m.name))
-                    .flat_map(|m| {
-                        [
-                            match m.approval {
-                                ApprovalStatus::Verified => 'V',
-                                ApprovalStatus::Approved => 'A',
-                                ApprovalStatus::Sandbox => 'S',
-                            }
-                            .into(),
-                            m.name.replace(';', ""),
-                        ]
-                    }),
-            )
-            .join(";")
-    }
 }
